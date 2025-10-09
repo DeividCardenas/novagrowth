@@ -1,114 +1,133 @@
-import { Role, RoleInput } from "../types/role";
+import { Permission, Role, RoleInput } from "../types/role";
 
 import api from "./axios";
 
-const LS_KEY = "nv_roles_storage_v1";
-const useMock = true;
+/** ============================
+ *  Helpers de mapeo y orden
+ * ============================ */
+const sortByIdAsc = (list: Role[]) =>
+  [...list].sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
 
-/* -------------------- Helpers -------------------- */
-function sortByIdAsc(list: Role[]): Role[] {
-  return [...list].sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
-}
-function readLS(): Role[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as Role[]) : [];
-  } catch {
-    return [];
+const encodePerm = (p: Permission) => `${p.module}:${p.action}`;
+
+const decodePerm = (raw: any): Permission | null => {
+  // Permiso como objeto { module, action }
+  if (raw && typeof raw === "object" && raw.module && raw.action) {
+    return { module: raw.module, action: raw.action } as Permission;
   }
-}
-function writeLS(data: Role[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(sortByIdAsc(data)));
-}
-function ensureSeed(): Role[] {
-  let data = readLS();
-  if (data.length === 0) {
-    data = [
-      {
-        id: "1",
-        name: "Administrador",
-        description: "Acceso total al sistema",
-        permissions: [
-          { module: "dashboard", action: "read" },
-          { module: "users", action: "read" },
-          { module: "users", action: "create" },
-          { module: "users", action: "update" },
-          { module: "users", action: "delete" },
-          { module: "roles", action: "read" },
-          { module: "roles", action: "create" },
-          { module: "roles", action: "update" },
-          { module: "roles", action: "delete" },
-          { module: "reports", action: "read" },
-          { module: "reports", action: "export" },
-          { module: "settings", action: "update" },
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-    writeLS(data);
+  // Permiso como string "modulo:accion"
+  if (typeof raw === "string" && raw.includes(":")) {
+    const [module, action] = raw.split(":");
+    return { module, action } as Permission;
   }
-  return sortByIdAsc(data);
-}
-function getMaxNumericId(list: Role[]): number {
-  return list.reduce((max, r) => {
-    const n = parseInt(r.id, 10);
-    return Number.isFinite(n) ? Math.max(max, n) : max;
-  }, 0);
+  return null;
+};
+
+type ServerRole =
+  | {
+      id_rol: number | string;
+      nombre: string;
+      descripcion?: string | null;
+      permisos?: Array<string | { module: string; action: string }>;
+      created_at?: string;
+      updated_at?: string;
+    }
+  | {
+      id: number | string;
+      name: string;
+      description?: string | null;
+      permissions?: Array<string | { module: string; action: string }>;
+      createdAt?: string;
+      updatedAt?: string;
+    };
+
+/** ============================
+ *  Adaptadores DTO
+ * ============================ */
+function fromServer(r: ServerRole): Role {
+  // Acepta ambas convenciones de claves
+  const id =
+    (r as any).id_rol ?? (r as any).id ?? (r as any).idRole ?? (r as any).idrole ?? "";
+  const name =
+    (r as any).nombre ?? (r as any).name ?? (r as any).rol ?? "Sin nombre";
+  const description =
+    (r as any).descripcion ?? (r as any).description ?? "" ;
+
+  const createdAt =
+    (r as any).created_at ?? (r as any).createdAt ?? new Date().toISOString();
+  const updatedAt =
+    (r as any).updated_at ?? (r as any).updatedAt ?? new Date().toISOString();
+
+  const rawPerms =
+    (r as any).permisos ?? (r as any).permissions ?? [];
+
+  const permissions: Permission[] = [];
+  if (Array.isArray(rawPerms)) {
+    for (const p of rawPerms) {
+      const dec = decodePerm(p);
+      if (dec) permissions.push(dec);
+    }
+  }
+
+  return {
+    id: String(id),
+    name,
+    description: description ?? "",
+    permissions,
+    createdAt,
+    updatedAt,
+  };
 }
 
-/* -------------------- API -------------------- */
+function toServerCreate(input: RoleInput) {
+  // Cuerpo mínimo compatible con backend existente
+  return {
+    nombre: input.name,
+    descripcion: input.description ?? "",
+    permisos: input.permissions.map(encodePerm), // ["roles:read", ...]
+  };
+}
+
+function toServerUpdate(input: RoleInput) {
+  return {
+    nombre: input.name,
+    descripcion: input.description ?? "",
+    permisos: input.permissions.map(encodePerm),
+  };
+}
+
+/** ============================
+ *  API pública
+ * ============================ */
 export async function listRoles(): Promise<Role[]> {
-  if (!useMock) {
-    const res = await api.get("/roles");
-    return sortByIdAsc(res.data as Role[]);
-  }
-  return ensureSeed();
+  const res = await api.get("/roles");
+  const data = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
+  const mapped = data.map(fromServer);
+  return sortByIdAsc(mapped);
 }
 
 export async function createRole(input: RoleInput): Promise<Role> {
-  if (!useMock) {
-    const res = await api.post("/roles", input);
-    return res.data;
-  }
-  const existing = ensureSeed();
-  const newId = String(getMaxNumericId(existing) + 1);
-  const role: Role = {
-    id: newId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...input,
-  };
-  writeLS([role, ...existing]);
-  return role;
+  const res = await api.post("/roles", toServerCreate(input));
+  return fromServer(res.data);
 }
 
 export async function updateRole(id: string, input: RoleInput): Promise<Role> {
-  if (!useMock) {
-    const res = await api.put(`/roles/${id}`, input);
-    return res.data;
-  }
-  const list = ensureSeed();
-  const updatedList = list.map((r) =>
-    r.id === id ? { ...r, ...input, updatedAt: new Date().toISOString() } : r
-  );
-  writeLS(updatedList);
-  return updatedList.find((r) => r.id === id)!;
+  const res = await api.put(`/roles/${id}`, toServerUpdate(input));
+  return fromServer(res.data);
 }
 
 export async function deleteRole(id: string): Promise<void> {
-  if (!useMock) {
-    await api.delete(`/roles/${id}`);
-    return;
-  }
-  writeLS(ensureSeed().filter((r) => r.id !== id));
+  await api.delete(`/roles/${id}`);
 }
 
-/* -------------------- Export/Import CSV -------------------- */
+/** ============================
+ *  Export/Import CSV en cliente
+ *  (opcional si el backend ya lo hace)
+ * ============================ */
 export function exportRolesCSV(roles: Role[]): Blob {
   const headers = ["id", "name", "description", "permissions", "createdAt", "updatedAt"];
   const rows = sortByIdAsc(roles).map((r) => {
-    const perms = r.permissions.map((p) => `${p.module}:${p.action}`).join("|");
+    const perms = r.permissions.map(encodePerm).join("|");
     const cols = [r.id, r.name, r.description ?? "", perms, r.createdAt, r.updatedAt];
     const escaped = cols.map((v) => `"${String(v).replace(/"/g, '""')}"`);
     return escaped.join(",");
@@ -118,13 +137,12 @@ export function exportRolesCSV(roles: Role[]): Blob {
 }
 
 export async function importRolesCSV(file: File): Promise<Role[]> {
+  // Import cliente: crea/actualiza usando el API uno por uno
   const text = await file.text();
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length <= 1) return ensureSeed();
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length <= 1) return listRoles();
 
-  const header = lines[0];
-  const dataLines = lines.slice(1);
-  const headers = header.split(",").map((h) => h.replace(/^"|"$/g, ""));
+  const headers = lines[0].split(",").map((h) => h.replace(/^"|"$/g, ""));
   const idx = (k: string) => headers.indexOf(k);
   const parseLine = (line: string): string[] => {
     const re = /("([^"]|"")*"|[^,]+)/g;
@@ -132,40 +150,17 @@ export async function importRolesCSV(file: File): Promise<Role[]> {
     return cols.map((c) => c.replace(/^"|"$/g, "").replace(/""/g, `"`));
   };
 
-  const base = ensureSeed();
-  let currentMax = getMaxNumericId(base);
-
-  const imported: Role[] = dataLines.map((line) => {
+  for (const line of lines.slice(1)) {
     const cols = parseLine(line);
-    const rawPerms = (cols[idx("permissions")] || "").split("|").filter(Boolean);
-    const permissions = rawPerms.map((p) => {
-      const [module, action] = p.split(":");
-      return { module, action } as any;
-    });
-
-    const maybeId = (cols[idx("id")] || "").trim();
-    let id = maybeId;
-    if (!maybeId || isNaN(parseInt(maybeId, 10))) id = String(++currentMax);
-    else currentMax = Math.max(currentMax, parseInt(maybeId, 10));
-
     const name = cols[idx("name")] || "Sin nombre";
     const description = cols[idx("description")] || "";
-    const createdAt = cols[idx("createdAt")] || new Date().toISOString();
+    const perms = (cols[idx("permissions")] || "")
+      .split("|")
+      .filter(Boolean)
+      .map((s) => decodePerm(s))
+      .filter(Boolean) as Permission[];
 
-    return {
-      id,
-      name,
-      description,
-      permissions,
-      createdAt,
-      updatedAt: new Date().toISOString(),
-    } as Role;
-  });
-
-  const merged = [
-    ...imported,
-    ...base.filter((b) => !imported.find((i) => i.id === b.id)),
-  ];
-  writeLS(merged);
-  return sortByIdAsc(merged);
+    await createRole({ name, description, permissions: perms });
+  }
+  return listRoles();
 }
