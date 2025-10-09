@@ -1,7 +1,8 @@
 import { IdOption, TipoId } from "../types/diagnostico";
-import { Module } from "../types/navigation";
+
 import { Banner } from "../types/dashboard";
 import { ImprovementPlan } from "../types/mejora";
+import { Module } from "../types/navigation";
 
 export const SIDEBAR_MODULES: Module[] = [
   {
@@ -17,6 +18,13 @@ export const SIDEBAR_MODULES: Module[] = [
     title: "Diagnóstico Inicial",
     sub: "Contexto de la organización",
     icon: "📝",
+  },
+  {
+    key: "roles",
+    path: "/roles",
+    title: "Roles & Permisos",
+    sub: "Configura accesos",
+    icon: "🛡️",
   },
   {
     key: "liderazgo",
