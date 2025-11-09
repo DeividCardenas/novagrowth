@@ -1,15 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DiagnosticoFormData,
   FormErrors,
-  TipoId,
   TipoPersona,
 } from "../../types/diagnostico";
 import { FormField } from "../../components/forms/FormField";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { TIPO_ID_OPTIONS } from "../../config/constants";
+
+// 🗺️ Leaflet y estilos
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import * as L from "leaflet";
 
 const initialState: DiagnosticoFormData = {
   correo: "",
@@ -28,10 +32,19 @@ const initialState: DiagnosticoFormData = {
   aceptaTratamiento: false,
 };
 
+const mapContainerStyle = {
+  width: "100%",
+  height: "350px",
+  borderRadius: "12px",
+};
+
+const center: [number, number] = [4.711, -74.0721]; // Bogotá
+
 export default function DiagnosticoInicial() {
   const navigate = useNavigate();
   const [data, setData] = useState<DiagnosticoFormData>(initialState);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [selected, setSelected] = useState<[number, number] | null>(null);
 
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -42,10 +55,33 @@ export default function DiagnosticoInicial() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-    // Optional: Clear error on change
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  // 📍 Maneja el clic en el mapa
+  const MapClickHandler = () => {
+    useMapEvents({
+      click(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        setSelected([lat, lng]);
+        setData((prev) => ({
+          ...prev,
+          georef: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        }));
+      },
+    });
+    return selected ? (
+      <Marker
+        position={selected}
+        icon={L.icon({
+          iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+          iconSize: [30, 30],
+        })}
+      />
+    ) : null;
   };
 
   const validate = (): boolean => {
@@ -58,7 +94,7 @@ export default function DiagnosticoInicial() {
     if (!data.numeroId.trim()) e.numeroId = "Campo obligatorio.";
     if (!data.direccion.trim()) e.direccion = "Campo obligatorio.";
     if (!data.georef.trim())
-      e.georef = "Campo obligatorio (URL, coordenadas o referencia).";
+      e.georef = "Selecciona una ubicación en el mapa o ingresa coordenadas.";
     if (!data.actividad.trim()) e.actividad = "Campo obligatorio.";
     if (!data.numTrabajadores || isNaN(Number(data.numTrabajadores)))
       e.numTrabajadores = "Ingresa un número válido.";
@@ -76,7 +112,7 @@ export default function DiagnosticoInicial() {
     if (!validate()) return;
     console.log("Diagnóstico enviado:", data);
     alert("Diagnóstico enviado. ¡Gracias!");
-    navigate("/dashboard"); // Navigate after successful submission
+    navigate("/dashboard");
   };
 
   return (
@@ -101,6 +137,7 @@ export default function DiagnosticoInicial() {
             <h3 className="text-lg font-extrabold text-brand-900 mb-6">
               Identificación de la organización
             </h3>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
               <FormField
                 label="Correo"
@@ -174,19 +211,18 @@ export default function DiagnosticoInicial() {
                 <div className="flex flex-wrap gap-4">
                   {TIPO_ID_OPTIONS.map(({ value, label }) => (
                     <label
-                      key={value} // Use the unique value for the key
-                      className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-4 py-2 cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-blue-300"
+                      key={value}
+                      className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-4 py-2 cursor-pointer"
                     >
                       <input
                         type="radio"
                         name="tipoId"
-                        value={value} // The input's value is the short acronym
+                        value={value}
                         checked={data.tipoId === value}
                         onChange={onChange}
                         className="accent-brand-900"
                       />
-                      {label}{" "}
-                      {/* The text displayed to the user is the full label */}
+                      {label}
                     </label>
                   ))}
                 </div>
@@ -228,7 +264,7 @@ export default function DiagnosticoInicial() {
                 htmlFor="georef"
                 error={errors.georef}
                 required
-                hint="URL del mapa, coordenadas o referencia. Ej: 3.4516,-76.5320"
+                hint="Selecciona en el mapa o ingresa coordenadas manualmente (lat, lng)"
               >
                 <Input
                   id="georef"
@@ -239,92 +275,24 @@ export default function DiagnosticoInicial() {
                 />
               </FormField>
             </div>
-          </section>
 
-          {/* --- Section: Cuestionario --- */}
-          <section className="border border-gray-200 rounded-xl p-5">
-            <h3 className="text-lg font-extrabold text-brand-900 mb-6">
-              Cuestionario
-            </h3>
-            <div className="space-y-8">
-              <FormField
-                label="1. ¿Cuál es la actividad económica de su empresa?"
-                htmlFor="actividad"
-                error={errors.actividad}
-                required
+            {/* --- OpenStreetMap (Leaflet) --- */}
+            <div className="mt-6 rounded-lg overflow-hidden">
+              <MapContainer
+                center={selected || center}
+                zoom={6}
+                style={mapContainerStyle}
               >
-                <textarea
-                  id="actividad"
-                  name="actividad"
-                  value={data.actividad}
-                  onChange={onChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg min-h-[100px] focus:ring-2 focus:ring-brand-800/50 focus:border-brand-800"
-                />
-              </FormField>
-
-              <FormField
-                label="2. ¿Cuántas personas trabajan en su empresa?"
-                htmlFor="numTrabajadores"
-                error={errors.numTrabajadores}
-                required
-              >
-                <Input
-                  id="numTrabajadores"
-                  name="numTrabajadores"
-                  type="number"
-                  min="0"
-                  value={data.numTrabajadores}
-                  onChange={onChange}
-                />
-              </FormField>
-
-              <FormField
-                label="3. ¿Cuál es la jornada laboral?"
-                htmlFor="jornada"
-                error={errors.jornada}
-                required
-              >
-                <Input
-                  id="jornada"
-                  name="jornada"
-                  type="text"
-                  placeholder="Ej: L–V 8:00–17:00, Sáb 8:00–12:00"
-                  value={data.jornada}
-                  onChange={onChange}
-                />
-              </FormField>
-
-              <FormField
-                label="4. ¿Cuáles son las entradas y salidas de sus procesos productivos o servicios?"
-                htmlFor="entradasSalidas"
-                error={errors.entradasSalidas}
-                required
-              >
-                <textarea
-                  id="entradasSalidas"
-                  name="entradasSalidas"
-                  value={data.entradasSalidas}
-                  onChange={onChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg min-h-[100px] focus:ring-2 focus:ring-brand-800/50 focus:border-brand-800"
-                />
-              </FormField>
-
-              <FormField
-                label="5. En caso de no tener identificado el numeral 4, describa cuáles son sus procesos operativos y qué insumos y materiales utiliza."
-                htmlFor="procesosSinES"
-              >
-                <textarea
-                  id="procesosSinES"
-                  name="procesosSinES"
-                  value={data.procesosSinES}
-                  onChange={onChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg min-h-[100px] focus:ring-2 focus:ring-brand-800/50 focus:border-brand-800"
-                />
-              </FormField>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapClickHandler />
+              </MapContainer>
+              <p className="text-sm text-gray-500 mt-2">
+                Haz clic en el mapa para establecer la ubicación exacta.
+              </p>
             </div>
           </section>
 
-          {/* --- Section: Aceptación y Acciones --- */}
+          {/* --- Resto del formulario igual --- */}
           <div className="pt-4">
             <div className="flex items-center gap-3">
               <input

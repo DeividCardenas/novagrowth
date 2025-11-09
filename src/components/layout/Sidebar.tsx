@@ -28,6 +28,7 @@ export const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
       )}
 
       <aside className={`${sidebarClasses} ${transformClass}`}>
+        {/* HEADER */}
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <div className="font-extrabold text-gray-800">Módulos</div>
           <button
@@ -50,6 +51,7 @@ export const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
           </button>
         </div>
 
+        {/* SEARCH BAR */}
         <div className="p-4 border-b border-gray-200">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -62,12 +64,14 @@ export const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
           </div>
         </div>
 
+        {/* MODULES */}
         <nav className="flex-grow overflow-y-auto p-2">
           {SIDEBAR_MODULES.map((module) => {
             const isParentActive = location.pathname.startsWith(module.path);
             const isMenuOpen = openMenuKey === module.key;
 
-            if (module.subModules) {
+            if (module.subModules && module.subModules.length > 0) {
+              // 🔹 MÓDULO CON SUBMÓDULOS (como Liderazgo → Roles y Permisos)
               return (
                 <div key={module.key}>
                   <button
@@ -98,6 +102,7 @@ export const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                       />
                     </svg>
                   </button>
+
                   {isMenuOpen && (
                     <div className="pl-10 py-1 space-y-1">
                       {module.subModules.map((sub) => (
@@ -122,6 +127,7 @@ export const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
               );
             }
 
+            // 🔹 MÓDULO SIMPLE SIN SUBMÓDULOS
             return (
               <NavLink
                 key={module.key}

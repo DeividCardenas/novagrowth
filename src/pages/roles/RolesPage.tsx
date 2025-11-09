@@ -1,11 +1,11 @@
+// src/pages/roles/RolesPage.tsx
 import { useMemo, useState } from "react";
-
-import { Role } from "../../types/role";
-import RoleForm from "../../components/roles/RoleForm";
-import RoleTable from "../../components/roles/RoleTable";
-import RoleToolbar from "../../components/roles/RoleToolbar";
-import { exportRolesCSV } from "../../api/roles.api";
 import { useRoles } from "../../hooks/useRoles";
+import { Role } from "../../types/role";
+import RoleToolbar from "../../components/roles/RoleToolbar";
+import RoleTable from "../../components/roles/RoleTable";
+import RoleForm from "../../components/roles/RoleForm";
+import { exportRolesCSV } from "../../api/roles.api";
 
 export default function RolesPage() {
   const {
@@ -17,16 +17,17 @@ export default function RolesPage() {
 
   const [editing, setEditing] = useState<Role | null>(null);
   const [openForm, setOpenForm] = useState(false);
+
   const title = useMemo(() => (editing ? "Modificar rol" : "Insertar rol"), [editing]);
 
   function openInsert() { setEditing(null); setOpenForm(true); }
   function openModify() {
     const pick = roles.find(r => selectedIds.includes(r.id));
-    if (!pick) return;
+    if (!pick) return alert("Seleccione un rol para modificar.");
     setEditing(pick); setOpenForm(true);
   }
   async function doDelete() {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0) return alert("Seleccione al menos un rol para eliminar.");
     if (!confirm(`Eliminar ${selectedIds.length} rol(es)?`)) return;
     for (const id of selectedIds) await removeRole(id);
     clearSelection();
@@ -45,9 +46,9 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8 py-6">
       {/* Encabezado */}
-      <div className="bg-gradient-to-r from-brand-800 to-brand-900 rounded-xl text-white px-5 py-4 shadow">
+      <div className="bg-gradient-to-r from-brand-800 to-brand-900 text-white rounded-xl px-5 py-4 shadow">
         <h1 className="text-lg font-bold">Roles & Permisos</h1>
         <p className="text-white/80 text-sm">Gestiona los roles del sistema y sus permisos.</p>
       </div>
@@ -67,12 +68,14 @@ export default function RolesPage() {
 
       {/* Estado */}
       {loading && <div className="text-gray-600">Cargando…</div>}
-      {error && <div className="text-red-600">{error}</div>}
+      {error && <div className="rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2">{error}</div>}
 
       {/* Tabla */}
       {!loading && !error && (
         <>
-          <RoleTable rows={paged} selectedIds={selectedIds} toggleSelect={toggleSelect} />
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <RoleTable rows={paged} selectedIds={selectedIds} toggleSelect={toggleSelect} />
+          </div>
 
           {/* Paginación */}
           <div className="flex items-center justify-between text-sm">
@@ -87,14 +90,41 @@ export default function RolesPage() {
         </>
       )}
 
-      {/* Modal Form */}
+      {/* Modal Form (responsive) */}
       {openForm && (
-        <div className="fixed inset-0 bg-black/30 grid place-items-center p-4">
-          <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <button onClick={() => { setOpenForm(false); setEditing(null); }} className="text-gray-500">✕</button>
+        // Overlay: en mobile items-end para que el panel aparezca desde abajo; en desktop lo centramos
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-4"
+          aria-modal="true"
+          role="dialog"
+          onClick={() => {
+            /* click en overlay cierra modal */
+            setOpenForm(false);
+            setEditing(null);
+          }}
+        >
+          <div
+            className="w-full sm:max-w-4xl bg-white rounded-t-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl max-h-[95vh] overflow-auto z-[80]"
+            onClick={(e) => e.stopPropagation()}
+            role="document"
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <p className="text-sm text-gray-500">{editing ? "Actualiza los datos del rol" : "Crea un nuevo rol"}</p>
+              </div>
+              <button
+                onClick={() => { setOpenForm(false); setEditing(null); }}
+                className="text-gray-500 hover:text-gray-800 ml-4"
+                aria-label="Cerrar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
+
+            {/* Contenido (form responsivo) */}
             <RoleForm
               initial={editing}
               onSubmit={async (data) => {

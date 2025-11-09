@@ -10,7 +10,7 @@ export default function RoleTable({ rows, selectedIds, toggleSelect }: Props) {
   return (
     <div className="overflow-auto rounded-lg border border-gray-200">
       <table className="min-w-full text-sm">
-        <thead className="bg-gray-50 sticky top-0 z-10">
+        <thead className="bg-gray-50 sticky top-0">
           <tr>
             <th className="p-3 w-10"></th>
             <th className="text-left p-3 font-semibold">Id</th>

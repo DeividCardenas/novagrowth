@@ -1,13 +1,15 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { MainLayout } from "./layouts/MainLayout";
+import Login from "./pages/auth/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import DiagnosticoInicial from "./pages/diagnostico/DiagnosticoInicial";
-import Login from "./pages/auth/Login";
-import { MainLayout } from "./layouts/MainLayout";
 import MejoraPage from "./pages/mejora/MejoraPage";
 import PlanDetailPage from "./pages/mejora/PlanDetailPage";
 import RolesPage from "./pages/roles/RolesPage";
-import { Toaster } from "react-hot-toast";
+import 'leaflet/dist/leaflet.css';
+
+
 
 export default function App() {
   return (
@@ -24,7 +26,7 @@ export default function App() {
           <Route path="/diagnostico" element={<DiagnosticoInicial />} />
           <Route path="/mejora" element={<MejoraPage />} />
           <Route path="/mejora/plan/:planId" element={<PlanDetailPage />} />
-          <Route path="/roles" element={<RolesPage />} />
+          <Route path="/liderazgo/roles" element={<RolesPage />} />
           {/* ...Other routes... */}
         </Route>
 

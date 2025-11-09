@@ -15,18 +15,53 @@ type Props = {
 };
 
 export default function RoleToolbar({
-  onInsert, onModify, onDelete, onExport, onImport,
-  search, setSearch, pageSize, setPageSize,
+  onInsert,
+  onModify,
+  onDelete,
+  onExport,
+  onImport,
+  search,
+  setSearch,
+  pageSize,
+  setPageSize,
 }: Props) {
   const fileRef = React.useRef<HTMLInputElement | null>(null);
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={onInsert}>Insertar</Button>
-        <Button variant="secondary" onClick={onModify}>Modificar</Button>
-        <Button variant="ghost" onClick={onDelete} className="border border-red-300 text-red-600">Eliminar</Button>
-        <Button onClick={onExport}>Exportar</Button>
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Botones */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          onClick={onInsert}
+          className="border-blue-700 text-blue-700 hover:scale-105 hover:bg-blue-50 transition-transform duration-200"
+        >
+          Insertar
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={onModify}
+          className="border-blue-700 text-blue-700 hover:scale-105 hover:bg-blue-50 transition-transform duration-200"
+        >
+          Modificar
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={onDelete}
+          className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white hover:scale-105 transition-transform duration-200"
+        >
+          Eliminar
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={onExport}
+          className="border-blue-700 text-blue-700 hover:scale-105 hover:bg-blue-50 transition-transform duration-200"
+        >
+          Exportar
+        </Button>
 
         <input
           ref={fileRef}
@@ -35,21 +70,38 @@ export default function RoleToolbar({
           className="hidden"
           onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])}
         />
-        <Button variant="secondary" onClick={() => fileRef.current?.click()}>Importar</Button>
+
+        <Button
+          variant="secondary"
+          onClick={() => fileRef.current?.click()}
+          className="border-blue-700 text-blue-700 hover:scale-105 hover:bg-blue-50 transition-transform duration-200"
+        >
+          Importar
+        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Controles de búsqueda y paginación */}
+      <div className="flex items-center gap-3 flex-wrap">
         <label className="text-sm text-gray-600">Mostrar</label>
         <select
           value={pageSize}
           onChange={(e) => setPageSize(parseInt(e.target.value))}
-          className="border rounded-md px-2 py-1"
+          className="border rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-700 outline-none"
         >
-          {[10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
+          {[10, 20, 50].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
         </select>
 
         <div className="w-64">
-          <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input
+            placeholder="Buscar..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="focus:ring-2 focus:ring-blue-700"
+          />
         </div>
       </div>
     </div>

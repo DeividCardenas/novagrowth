@@ -1,6 +1,7 @@
-import { AppModule, PermissionAction, Role, RoleInput } from "../types/role";
-import { createRole, deleteRole, importRolesCSV, listRoles, updateRole } from "../api/roles.api";
+// src/hooks/useRoles.ts
 import { useEffect, useMemo, useState } from "react";
+import { Role, RoleInput, PermissionAction, AppModule } from "../types/role";
+import { listRoles, createRole, updateRole, deleteRole, importRolesCSV } from "../api/roles.api";
 
 export const ACTIONS: PermissionAction[] = ["read","create","update","delete","export"];
 export const MODULES: AppModule[]   = ["dashboard","users","roles","reports","settings"];
